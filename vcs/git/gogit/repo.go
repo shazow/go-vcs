@@ -1,12 +1,14 @@
 package git
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/shazow/go-git"
 	"golang.org/x/tools/godoc/vfs"
 	"sourcegraph.com/sourcegraph/go-vcs/vcs"
@@ -318,5 +320,92 @@ func (r *Repository) FileSystem(at vcs.CommitID) (vfs.FileSystem, error) {
 		oid:  string(at),
 		tree: &ci.Tree,
 		repo: r.repo,
+	}, nil
+}
+
+// Diff shows changes between two commits. If base or head do not
+// exist, an error is returned.
+func (r *Repository) Diff(base, head vcs.CommitID, opt *vcs.DiffOptions) (*vcs.Diff, error) {
+	baseCommit, err := r.repo.GetCommit(string(base))
+	if err != nil {
+		return nil, standardizeError(err)
+	}
+	headCommit, err := r.repo.GetCommit(string(head))
+	if err != nil {
+		return nil, standardizeError(err)
+	}
+
+	// TODO: Implement
+	// - opt.Paths
+	// - opt.DetectRenames
+	// - opt.OrigPrefix, opt.NewPrefix
+	// - opt.ExcludeReachableFromBoth
+
+	// Find changed tree elements
+	seen := map[string]diffEntry{} // path -> entry
+	if err = baseCommit.Tree.Walk(func(path string, te *git.TreeEntry, err error) error {
+		if err != nil {
+			// Not expecting any errors
+			return err
+		}
+		id := te.Id.String()
+		e := diffEntry{id, path, te}
+		seen[path] = e
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	changedText := map[string]diffEntry{} // path -> entry
+	if err = headCommit.Tree.Walk(func(path string, te *git.TreeEntry, err error) error {
+		if err != nil {
+			// Not expecting any errors
+			return err
+		}
+		e := diffEntry{te.Id.String(), path, te}
+		s, ok := seen[path]
+		if ok {
+			if s.id != e.id {
+				// Changed
+				changedText[path] = e
+			} else {
+				// Identical, remove it.
+				delete(seen, e.id)
+			}
+			return nil
+		}
+
+		// TODO: Short-list for rename candidates?
+		changedText[path] = e
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	diff := differ{
+		DiffMatchPatch: diffmatchpatch.New(),
+	}
+	if opt != nil {
+		diff.aPrefix = opt.OrigPrefix
+		diff.bPrefix = opt.NewPrefix
+	}
+	rawDiff := bytes.Buffer{}
+	emptyEntry := diffEntry{}
+	for path, headEntry := range changedText {
+		baseEntry := seen[path]
+		if err = diff.Write(&rawDiff, baseEntry, headEntry); err != nil {
+			return nil, err
+		}
+		delete(seen, path)
+	}
+
+	for _, baseEntry := range seen {
+		if err = diff.Write(&rawDiff, baseEntry, emptyEntry); err != nil {
+			return nil, err
+		}
+	}
+
+	return &vcs.Diff{
+		Raw: rawDiff.String(),
 	}, nil
 }

@@ -17,6 +17,14 @@ import (
 	"sourcegraph.com/sourcegraph/go-vcs/vcs/util"
 )
 
+func readEntry(te *git.TreeEntry) ([]byte, error) {
+	reader, err := te.Blob().Data()
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadAll(reader)
+}
+
 type filesystem struct {
 	dir  string
 	oid  string
@@ -33,15 +41,7 @@ func (fs *filesystem) readFileBytes(name string) ([]byte, error) {
 
 	switch e.Type {
 	case git.ObjectBlob:
-		reader, err := e.Blob().Data()
-		if err != nil {
-			return nil, err
-		}
-		b, err := ioutil.ReadAll(reader)
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
+		return readEntry(e)
 	case git.ObjectCommit:
 		// Return empty for a submodule for now.
 		return nil, nil
@@ -104,11 +104,7 @@ func (fs *filesystem) Stat(path string) (os.FileInfo, error) {
 
 	if e.EntryMode() == git.ModeSymlink {
 		// Dereference symlink.
-		reader, err := e.Blob().Data()
-		if err != nil {
-			return nil, err
-		}
-		b, err := ioutil.ReadAll(reader)
+		b, err := readEntry(e)
 		if err != nil {
 			return nil, err
 		}
@@ -163,11 +159,7 @@ func (fs *filesystem) fileInfo(e *git.TreeEntry) (*util.FileInfo, error) {
 		mode |= os.ModeSymlink
 
 		// Dereference symlink.
-		reader, err := e.Blob().Data()
-		if err != nil {
-			return nil, err
-		}
-		b, err := ioutil.ReadAll(reader)
+		b, err := readEntry(e)
 		if err != nil {
 			return nil, err
 		}

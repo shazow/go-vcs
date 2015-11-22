@@ -50,6 +50,13 @@ func TestRepository_Diff(t *testing.T) {
 		// (it seems to change in hg).
 		wantDiff *vcs.Diff
 	}{
+		"git go-git": {
+			repo: makeGitRepositoryGoGit(t, cmds...),
+			base: "testbase", head: "testhead",
+			wantDiff: &vcs.Diff{
+				Raw: "diff --git f f\nindex a29bdeb434d874c9b1d8969c40c42161b03fafdc..c0d0fb45c382919737f8d0c20aaf57cf89b74af8 100644\n--- f\n+++ f\n@@ -1 +1,2 @@\n line1\n+line2\n",
+			},
+		},
 		"git libgit2": {
 			repo: makeGitRepositoryLibGit2(t, cmds...),
 			base: "testbase", head: "testhead",
@@ -170,6 +177,14 @@ func TestRepository_Diff_rename(t *testing.T) {
 			base: "testbase", head: "testhead",
 			wantDiff: &vcs.Diff{
 				Raw: "diff --git f g\nsimilarity index 100%\nrename from f\nrename to g\n",
+			},
+			opt: opt,
+		},
+		"git go-git": {
+			repo: makeGitRepositoryGoGit(t, cmds...),
+			base: "testbase", head: "testhead",
+			wantDiff: &vcs.Diff{
+				Raw: "diff --git f g\nindex a29bdeb434d874c9b1d8969c40c42161b03fafdc..a29bdeb434d874c9b1d8969c40c42161b03fafdc 100644\n--- f\n+++ g\n",
 			},
 			opt: opt,
 		},
