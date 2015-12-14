@@ -22,8 +22,10 @@ func init() {
 }
 
 // Repository is a git VCS repository.
+//
+// This implementation does not provide any locking. Concurrency concerns
+// should be handled by the consumer of this library.
 type Repository struct {
-	// TODO: Do we need locking?
 	repo *git.Repository
 	// fallback is used for features that are not implemented here yet.
 	fallback *gitcmd.Repository
@@ -60,80 +62,6 @@ func Open(dir string) (*Repository, error) {
 		repo:     repo,
 		fallback: &gitcmd.Repository{Dir: dir},
 	}, nil
-}
-
-func Clone(url, dir string, opt vcs.CloneOpt) (*Repository, error) {
-	// FIXME: This will call Open ~3 times as it jumps between
-	// gitcmd -> gogit -> gitcmd until we replace it with a native version or
-	// refactor.
-	_, err := gitcmd.Clone(url, dir, opt)
-	if err != nil {
-		return nil, err
-	}
-	return Open(dir)
-}
-
-func (r *Repository) BlameFile(path string, opt *vcs.BlameOptions) ([]*vcs.Hunk, error) {
-	// TODO: Remove fallback usage: BlameFile
-	return r.fallback.BlameFile(path, opt)
-}
-
-func (r *Repository) Committers(opt vcs.CommittersOptions) ([]*vcs.Committer, error) {
-	// TODO: Remove fallback usage: Committers
-	return r.fallback.Committers(opt)
-}
-
-func (r *Repository) Diff(base, head vcs.CommitID, opt *vcs.DiffOptions) (*vcs.Diff, error) {
-	// TODO: Remove fallback usage: Diff
-	return r.fallback.Diff(base, head, opt)
-}
-
-func (r *Repository) CrossRepoDiff(base vcs.CommitID, headRepo vcs.Repository, head vcs.CommitID, opt *vcs.DiffOptions) (*vcs.Diff, error) {
-	// TODO: Remove fallback usage: CrossRepoDiff
-	return r.fallback.CrossRepoDiff(base, headRepo, head, opt)
-}
-
-func (r *Repository) CrossRepoMergeBase(a vcs.CommitID, repoB vcs.Repository, b vcs.CommitID) (vcs.CommitID, error) {
-	// TODO: Remove fallback usage: CrossRepoMergeBase
-	return r.fallback.CrossRepoMergeBase(a, repoB, b)
-}
-
-func (r *Repository) Search(at vcs.CommitID, opt vcs.SearchOptions) ([]*vcs.SearchResult, error) {
-	// TODO: Remove fallback usage: Search
-	return r.fallback.Search(at, opt)
-}
-
-func (r *Repository) MergeBase(a, b vcs.CommitID) (vcs.CommitID, error) {
-	// TODO: Remove fallback usage: MergeBase
-	return r.fallback.MergeBase(a, b)
-}
-
-func (r *Repository) UpdateEverything(opt vcs.RemoteOpts) (*vcs.UpdateResult, error) {
-	// TODO: Remove fallback usage: UpdateEverything
-	return r.fallback.UpdateEverything(opt)
-}
-
-// ResolveRevision returns the revision that the given revision
-// specifier resolves to, or a non-nil error if there is no such
-// revision.
-func (r *Repository) ResolveRevision(spec string) (vcs.CommitID, error) {
-	// TODO: git rev-parse supports a horde of complex syntaxes, it will be a fair bit more work to support all of them.
-	// e.g. "master@{yesterday}", "master~3", and various text/path/tree traversal search.
-	ci, err := r.ResolveTag(spec)
-	if err == nil {
-		return ci, nil
-	}
-	ci, err = r.ResolveBranch(spec)
-	if err == nil {
-		return ci, nil
-	}
-	// Do an extra lookup just in case it's a complex syntax we don't support
-	// TODO: Remove fallback usage: ResolveRevision
-	ci, err = r.fallback.ResolveRevision(spec)
-	if err == nil {
-		return ci, nil
-	}
-	return ci, vcs.ErrRevisionNotFound
 }
 
 // ResolveTag returns the tag with the given name, or
