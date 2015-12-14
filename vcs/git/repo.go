@@ -1,7 +1,6 @@
 package git
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,6 +76,11 @@ func Clone(url, dir string, opt vcs.CloneOpt) (*Repository, error) {
 func (r *Repository) BlameFile(path string, opt *vcs.BlameOptions) ([]*vcs.Hunk, error) {
 	// TODO: Remove fallback usage: BlameFile
 	return r.fallback.BlameFile(path, opt)
+}
+
+func (r *Repository) Committers(opt vcs.CommittersOptions) ([]*vcs.Committer, error) {
+	// TODO: Remove fallback usage: Committers
+	return r.fallback.Committers(opt)
 }
 
 func (r *Repository) Diff(base, head vcs.CommitID, opt *vcs.DiffOptions) (*vcs.Diff, error) {
@@ -362,11 +366,6 @@ func (r *Repository) Commits(opt vcs.CommitsOptions) ([]*vcs.Commit, uint, error
 	}
 
 	return commits, total, err
-}
-
-// Committers returns the per-author commit statistics of the repo.
-func (r *Repository) Committers(committerOpts vcs.CommittersOptions) ([]*vcs.Committer, error) {
-	return nil, errors.New("gogit: Committers not implemented")
 }
 
 // FileSystem opens the repository file tree at a given commit ID.
